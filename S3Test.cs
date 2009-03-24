@@ -9,8 +9,8 @@ namespace Fr.Zhou.S3
 {
     static class Keys
     {
-        public static readonly string AwsAccessKeyId = "1S02BY3BSPRME2AGK402";
-        public static readonly string AwsSecretAccessKey = "njYNT4hmLPFeCsoQjRaqH1/W1RmJB5IiaO9uz97/";
+        public static readonly string AwsAccessKeyId = "<Your Access Key Id Here>";
+        public static readonly string AwsSecretAccessKey = "<Your Access Key Here>";
     }
 
     class S3Test
