@@ -77,6 +77,7 @@ namespace Fr.Zhou.S3
 
         private void menuSetting_Click(object sender, EventArgs e)
         {
+            this.Show();
             TopMost = true;
             this.WindowState = FormWindowState.Normal;
         }
@@ -120,6 +121,7 @@ namespace Fr.Zhou.S3
             }
             TopMost = false;
             this.WindowState = FormWindowState.Minimized;
+            this.Hide();
             notifyIcon.Text = "Amazon S3 Sync [running]";
 
             // Sync the directory first.
@@ -129,7 +131,7 @@ namespace Fr.Zhou.S3
             try
             {
                 CheckBucket();
-                SyncS3();
+                //SyncS3();
                 fileSystemWatcher.Path = strLocalPath;
             }
             catch (ArgumentException ae)
@@ -141,6 +143,10 @@ namespace Fr.Zhou.S3
                 showErrorMessage("Error", ee.Message);
             }
             btnStart.Enabled = false;
+            txtAWSID.Enabled = false;
+            txtAWSKey.Enabled = false;
+            txtBucket.Enabled = false;
+            localDirBrowser.Enabled = false;
         }
 
         private void btnExit_Click(object sender, EventArgs e)

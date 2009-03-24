@@ -46,8 +46,8 @@
             this.notifyIcon = new System.Windows.Forms.NotifyIcon(this.components);
             this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.menuSetting = new System.Windows.Forms.ToolStripMenuItem();
-            this.menuExit = new System.Windows.Forms.ToolStripMenuItem();
             this.manuallySyncToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.menuExit = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcher)).BeginInit();
             this.contextMenuStrip.SuspendLayout();
             this.SuspendLayout();
@@ -174,7 +174,7 @@
             this.manuallySyncToolStripMenuItem,
             this.menuExit});
             this.contextMenuStrip.Name = "NotifyContextMenuStrip";
-            this.contextMenuStrip.Size = new System.Drawing.Size(179, 92);
+            this.contextMenuStrip.Size = new System.Drawing.Size(179, 70);
             // 
             // menuSetting
             // 
@@ -183,19 +183,19 @@
             this.menuSetting.Text = "Open Setting Window";
             this.menuSetting.Click += new System.EventHandler(this.menuSetting_Click);
             // 
-            // menuExit
-            // 
-            this.menuExit.Name = "menuExit";
-            this.menuExit.Size = new System.Drawing.Size(178, 22);
-            this.menuExit.Text = "Exit";
-            this.menuExit.Click += new System.EventHandler(this.menuExit_Click);
-            // 
             // manuallySyncToolStripMenuItem
             // 
             this.manuallySyncToolStripMenuItem.Name = "manuallySyncToolStripMenuItem";
             this.manuallySyncToolStripMenuItem.Size = new System.Drawing.Size(178, 22);
             this.manuallySyncToolStripMenuItem.Text = "Force Sync Manually";
             this.manuallySyncToolStripMenuItem.Click += new System.EventHandler(this.manuallySyncToolStripMenuItem_Click);
+            // 
+            // menuExit
+            // 
+            this.menuExit.Name = "menuExit";
+            this.menuExit.Size = new System.Drawing.Size(178, 22);
+            this.menuExit.Text = "Exit";
+            this.menuExit.Click += new System.EventHandler(this.menuExit_Click);
             // 
             // S3Notify
             // 
@@ -215,6 +215,7 @@
             this.Controls.Add(this.label1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedToolWindow;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
+            this.ImeMode = System.Windows.Forms.ImeMode.Off;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
             this.Name = "S3Notify";
