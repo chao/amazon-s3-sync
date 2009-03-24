@@ -301,6 +301,8 @@ namespace Fr.Zhou.S3
             {
                 S3Key += "/";
                 FileType = "Directory";
+                if (e.ChangeType.ToString() == "Changed")
+                    return;
             }
             try
             {
@@ -317,24 +319,12 @@ namespace Fr.Zhou.S3
         private void fileSystemWatcher_Deleted(object sender, FileSystemEventArgs e)
         {
             string S3Key = Utils.GetKeyByPath(e.FullPath, strLocalPath);
-            string FileType = "File";
-            if (Directory.Exists(e.FullPath))
-            {
-                S3Key += "/";
-                FileType = "Directory";
-            }
             try
             {
-                if (FileType != "Directory")
-                {
-                    S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
-                    S3Obj.Delete();
-                }
-                else
-                {
-                    Bucket.DeleteDirectory(S3Key);
-                }
-                this.showNotifyMessage(FileType + " Deleted", S3Key);
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Delete();
+                Bucket.DeleteDirectory(S3Key + "/");
+                this.showNotifyMessage("File or Directory Deleted", e.FullPath);
             }
             catch (Exception ee)
             {
