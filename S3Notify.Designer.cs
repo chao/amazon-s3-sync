@@ -47,6 +47,7 @@
             this.contextMenuStrip = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.menuSetting = new System.Windows.Forms.ToolStripMenuItem();
             this.menuExit = new System.Windows.Forms.ToolStripMenuItem();
+            this.manuallySyncToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.fileSystemWatcher)).BeginInit();
             this.contextMenuStrip.SuspendLayout();
             this.SuspendLayout();
@@ -151,6 +152,7 @@
             // fileSystemWatcher
             // 
             this.fileSystemWatcher.EnableRaisingEvents = true;
+            this.fileSystemWatcher.IncludeSubdirectories = true;
             this.fileSystemWatcher.SynchronizingObject = this;
             this.fileSystemWatcher.Renamed += new System.IO.RenamedEventHandler(this.fileSystemWatcher_Renamed);
             this.fileSystemWatcher.Deleted += new System.IO.FileSystemEventHandler(this.fileSystemWatcher_Deleted);
@@ -169,9 +171,10 @@
             // 
             this.contextMenuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.menuSetting,
+            this.manuallySyncToolStripMenuItem,
             this.menuExit});
             this.contextMenuStrip.Name = "NotifyContextMenuStrip";
-            this.contextMenuStrip.Size = new System.Drawing.Size(179, 48);
+            this.contextMenuStrip.Size = new System.Drawing.Size(179, 92);
             // 
             // menuSetting
             // 
@@ -186,6 +189,13 @@
             this.menuExit.Size = new System.Drawing.Size(178, 22);
             this.menuExit.Text = "Exit";
             this.menuExit.Click += new System.EventHandler(this.menuExit_Click);
+            // 
+            // manuallySyncToolStripMenuItem
+            // 
+            this.manuallySyncToolStripMenuItem.Name = "manuallySyncToolStripMenuItem";
+            this.manuallySyncToolStripMenuItem.Size = new System.Drawing.Size(178, 22);
+            this.manuallySyncToolStripMenuItem.Text = "Force Sync Manually";
+            this.manuallySyncToolStripMenuItem.Click += new System.EventHandler(this.manuallySyncToolStripMenuItem_Click);
             // 
             // S3Notify
             // 
@@ -239,6 +249,7 @@
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip;
         private System.Windows.Forms.ToolStripMenuItem menuSetting;
         private System.Windows.Forms.ToolStripMenuItem menuExit;
+        private System.Windows.Forms.ToolStripMenuItem manuallySyncToolStripMenuItem;
     }
 }
 

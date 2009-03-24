@@ -17,7 +17,7 @@ namespace Fr.Zhou.S3
         public int Size { get { return m_size; } }
         
         string m_eTag;
-        public string ETag { get { return m_eTag; } }
+        public string ETag { get { return m_eTag.Substring(1, m_eTag.Length-2); } }
 
         DateTime m_lastModified;
         public DateTime LastModified { get { return m_lastModified; } }
@@ -44,7 +44,7 @@ namespace Fr.Zhou.S3
             m_buckname = BucketName;
         }
 
-        public void S3ObjectDownload(string DistLocation)
+        public void Get(string DistLocation)
         {
             ObjectGetResponse response = null;
             try
@@ -64,15 +64,22 @@ namespace Fr.Zhou.S3
             }
         }
 
-        public void S3ObjectUpload(string SourceLocation)
+        public void Upload(string SourceLocation)
         {
              
             ObjectAddResponse response = null;
+            ObjectAddRequest request = null;
             try
             {
-                ObjectAddRequest request = new ObjectAddRequest(m_buckname, m_key);
-                request.LoadStreamWithFile(SourceLocation);
+                request = new ObjectAddRequest(m_buckname, m_key);
+                if (m_key.EndsWith("/"))
+                {
+                    //request.LoadStreamWithString("");
+                }
+                else
+                    request.LoadStreamWithFile(SourceLocation);
                 response = Service.ObjectAdd(request);
+                
             }
             catch (Exception ex)
             {
@@ -80,12 +87,14 @@ namespace Fr.Zhou.S3
             }
             finally
             {
+                if (request != null && request.DataStream != null)
+                    request.DataStream.Close();
                 if (response != null && response.DataStream != null)
                     response.DataStream.Close();
             }
         }
 
-        public void S3ObjectDelete()
+        public void Delete()
         {
             ObjectDeleteResponse response = null;
             try

@@ -15,87 +15,146 @@ namespace Fr.Zhou.S3
 
     class S3Test
     {
+        private static string BucketName = "steatite";
+        private static string StrLocalPath = "c:\\testing\\";
         static void Main(string[] args)
         {
-            string BucketName = "steatite";
-            string StrLocalPath = "c:\\testing";
+            SyncToS3();
+            Console.ReadLine();
+        }
+
+        private static void SyncToS3()
+        {
             S3Connection S3Conn = new S3Connection(Keys.AwsAccessKeyId, Keys.AwsSecretAccessKey);
-            S3Bucket bucket = new S3Bucket(S3Conn, BucketName);
-            if (!bucket.Exists)
+            S3Bucket Bucket = new S3Bucket(S3Conn, BucketName);
+            string strLocalPath = "c:\\testing\\";
+            Utils.ListDirectory(strLocalPath);
+            foreach (var S3Obj in Bucket.Keys)
             {
-                Console.WriteLine("Bucket {0} doesn't exist!", BucketName);
-                try
-                {
-                    bucket.Create();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-                Console.ReadLine();
-                return;
-            }
-
-
-            #region init sync file
-            foreach (var S3File in bucket.Keys)
-            {
-                string StrFileName = StrLocalPath + "\\" + S3File.Key;
+                string StrPathName = S3Obj.Key.Replace("/", "\\");
+                string StrFileName = strLocalPath + "\\" + S3Obj.Key;
 
                 FileInfo FiLocal = new FileInfo(StrFileName);
-                if (Utils.IsDirectory(S3File.Key))
+                // Make sure the directory is already created.
+                if (!Directory.Exists(FiLocal.DirectoryName))
                 {
-                    if (!Directory.Exists(FiLocal.DirectoryName))
+                    try
                     {
-                        try
-                        {
-                            Directory.CreateDirectory(FiLocal.DirectoryName);
-                        }
-                        catch (Exception ex)
-                        {
-                            throw ex;
-                        }
+                        Directory.CreateDirectory(FiLocal.DirectoryName);
                     }
-                    Console.WriteLine(FiLocal.DirectoryName);
+                    catch (Exception ex)
+                    {
+                        throw ex;
+                    }
+                    showNotifyMessage("Directory Created", "Directory \"" + FiLocal.DirectoryName + "\" created successfully.");
+                }
+
+                // Is a directory, skip it.
+                if (S3Obj.Key.EndsWith("/"))
+                {
+                    Utils.AlDirectories.Remove(FiLocal.DirectoryName);
                     continue;
                 }
 
                 if (!FiLocal.Exists)
                 {
-                    S3File.S3ObjectDownload(FiLocal.FullName);
-                    Console.WriteLine("Download New File");
+                    S3Obj.Get(FiLocal.FullName);
+                    showNotifyMessage("File Downloaded", FiLocal.FullName);
                 }
                 else
                 {
+                    Utils.AlFiles.Remove(FiLocal.FullName);
                     DateTime lastWriteTime = FiLocal.LastWriteTime;
-                    if (lastWriteTime > S3File.LastModified)
+                    if (lastWriteTime > S3Obj.LastModified)
                     {
                         string LocalFileETag = Utils.Md5(StrFileName);
-                        if (!LocalFileETag.ToLower().Equals(S3File.ETag))
+                        if (!LocalFileETag.ToLower().Equals(S3Obj.ETag))
                         {
-                            S3File.S3ObjectUpload(FiLocal.FullName);
-                            Console.WriteLine("Upload Overwrite");
+                            S3Obj.Upload(FiLocal.FullName);
+                            showNotifyMessage("S3 File Updated", FiLocal.FullName + ", \nEtag:" + LocalFileETag.ToLower() + "\nS3ETag" + S3Obj.ETag);
                         }
                         continue;
                     }
-                    if (lastWriteTime < S3File.LastModified)
+
+                    if (lastWriteTime < S3Obj.LastModified)
                     {
                         string LocalFileETag = Utils.Md5(StrFileName);
-                        if (!LocalFileETag.ToLower().Equals(S3File.ETag))
+                        if (!LocalFileETag.ToLower().Equals(S3Obj.ETag))
                         {
-                            S3File.S3ObjectDownload(FiLocal.FullName);
-                            Console.WriteLine("Download Overwrite");
+                            S3Obj.Get(FiLocal.FullName);
+                            showNotifyMessage("Local File Updated", FiLocal.FullName + ", \nEtag:" + LocalFileETag.ToLower() + "\nS3ETag" + S3Obj.ETag);
                         }
                         continue;
                     }
                 }
             }
-            #endregion
-
-
-            Console.ReadLine();
+            foreach (var StrPath in Utils.AlDirectories)
+            {
+                string S3Key = Utils.GetKeyByPath((string)StrPath, strLocalPath);
+                S3Key += "/";
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Upload(StrPath.ToString());
+                Console.WriteLine("[local] Upload Directory" + S3Key);
+            }
+            foreach (var StrPath in Utils.AlFiles)
+            {
+                string S3Key = Utils.GetKeyByPath((string)StrPath, strLocalPath);
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Upload(StrPath.ToString());
+                Console.WriteLine("[local] Upload Directory" + S3Key);
+            }
         }
 
+        private static void S3DirectoryDeleteTest()
+        {
+            S3Connection S3Conn = new S3Connection(Keys.AwsAccessKeyId, Keys.AwsSecretAccessKey);
+            S3Bucket Bucket = new S3Bucket(S3Conn, BucketName);
+            foreach (var S3Obj in Bucket.Keys)
+                Console.WriteLine(S3Obj.Key + "," + S3Obj.LastModified + "," + S3Obj.Size / 1024 + "KB");
+            try
+            {
+                Bucket.DeleteDirectory("mydir/");
+            }
+            catch (Exception ee)
+            {
+                Console.WriteLine("Error:" + ee.Message);
+            }
+        }
 
+        private static void S3CreateFileInDirectoryTest()
+        {
+            string S3Key = "mydir/WGAErrLog.txt";
+            S3Connection S3Conn = new S3Connection(Keys.AwsAccessKeyId, Keys.AwsSecretAccessKey);
+            S3Bucket Bucket = new S3Bucket(S3Conn, BucketName);
+            try
+            {
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Upload(StrLocalPath + "\\WGAErrLog.txt");
+                Console.WriteLine(S3Key);
+            }
+            catch (Exception ee)
+            {
+                Console.WriteLine("Error:" + ee.Message);
+            }
+        }
+
+        private static void DirectoryListTest()
+        {
+            string StrBaseDir = "c:\\testing\\";
+            FileInfo fi = new FileInfo(StrBaseDir + "\\flickr\\party\\");
+            Console.WriteLine(fi.DirectoryName);
+            Utils.ListDirectory(StrBaseDir);
+            Utils.AlDirectories.Remove(fi.DirectoryName);
+            foreach (var StrName in Utils.AlDirectories)
+                Console.WriteLine(StrName);
+            foreach (var StrName in Utils.AlFiles)
+                Console.WriteLine(StrName);
+
+        }
+
+        private static void showNotifyMessage(string title, string message)
+        {
+            Console.WriteLine(title + ":" + message);
+        }
     }
 }

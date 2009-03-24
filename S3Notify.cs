@@ -20,7 +20,7 @@ namespace Fr.Zhou.S3
         private static string strLocalPath = "";
         private static S3Connection S3Conn = null;
         private static S3Bucket Bucket = null;
-
+        private static string BucketName = null;
         [DllImport("user32.dll")]
         public static extern int SendMessage(int hWnd, uint Msg, int wParam, int lParam);
 
@@ -48,7 +48,109 @@ namespace Fr.Zhou.S3
             }
         }
 
-        
+        private void notifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            TopMost = true;
+            this.WindowState = FormWindowState.Normal;
+        }
+
+        private void S3Notify_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            //If the flag is "false", then it means that it is not raised from context menu and it is raised by clicking X button in the form
+            if (boolContextFormClose == false)
+            {
+                e.Cancel = true;
+                TopMost = false;
+                this.WindowState = FormWindowState.Minimized;
+                showNotifyMessage("Amazon S3 Sync [Beta] running ...", "Amazon S3 Sync is still running in background.\nDouble click me to open setting window again.");
+            }
+            //Otherwise the close event is raised from context menu and ask the user whether he wants to close the application
+            else
+            {
+                if (MessageBox.Show("Do you want to close \"Amazon S3 Sync\"?", "Amazon S3 Sync", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
+                {
+                    e.Cancel = true;
+                }
+                
+            }
+        }
+
+        private void menuSetting_Click(object sender, EventArgs e)
+        {
+            TopMost = true;
+            this.WindowState = FormWindowState.Normal;
+        }
+
+        private void menuExit_Click(object sender, EventArgs e)
+        {
+            fileSystemWatcher.EnableRaisingEvents = false;
+            boolContextFormClose = true;
+            Application.Exit();
+        }
+
+        private void btnStart_Click(object sender, EventArgs e)
+        {
+            if ((txtLocalPath.Text.Length == 0) || (txtAWSID.Text.Length == 0)
+                 || (txtAWSKey.Text.Length == 0) || (txtBucket.Text.Length == 0))
+            {
+                MessageBox.Show("Please input the AWS information, Bucket Name, and Local Path.", "Please define AWS information, Bucket name, Local Path ...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            RegistryKey rk = Registry.CurrentUser;
+            RegistryKey rkOpen = rk.CreateSubKey(REGISTRY_KEY);
+            rkOpen.SetValue("LocalPath", txtLocalPath.Text);
+            rkOpen.SetValue("AWSID", txtAWSID.Text);
+            rkOpen.SetValue("AWSKey", txtAWSKey.Text);
+            rkOpen.SetValue("Bucket", txtBucket.Text);
+            BucketName = txtBucket.Text;
+            strLocalPath = txtLocalPath.Text;
+            //Create the directory if it is not created
+            if (!Directory.Exists(strLocalPath))
+            {
+                try
+                {
+                    Directory.CreateDirectory(strLocalPath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+            TopMost = false;
+            this.WindowState = FormWindowState.Minimized;
+            notifyIcon.Text = "Amazon S3 Sync [running]";
+
+            // Sync the directory first.
+            S3Conn = new S3Connection(txtAWSID.Text, txtAWSKey.Text);
+            Bucket = new S3Bucket(S3Conn, BucketName);
+
+            try
+            {
+                CheckBucket();
+                SyncS3();
+                fileSystemWatcher.Path = strLocalPath;
+            }
+            catch (ArgumentException ae)
+            {
+                showErrorMessage("Error", ae.Message);
+            }
+            catch (Exception ee)
+            {
+                showErrorMessage("Error", ee.Message);
+            }
+            btnStart.Enabled = false;
+        }
+
+        private void btnExit_Click(object sender, EventArgs e)
+        {
+            fileSystemWatcher.EnableRaisingEvents = false;
+            notifyIcon.Text = "Amazon S3 Sync [not running]";
+            boolContextFormClose = true;
+            Application.Exit();
+        }
+
         private void localDirBrowser_Click(object sender, EventArgs e)
         {
             try
@@ -73,105 +175,106 @@ namespace Fr.Zhou.S3
             }
         }
 
-        private void btnStart_Click(object sender, EventArgs e)
+        private void CheckBucket()
         {
-            if ((txtLocalPath.Text.Length == 0) || (txtAWSID.Text.Length == 0)
-                 || (txtAWSKey.Text.Length == 0) || (txtBucket.Text.Length == 0))
-            {
-                MessageBox.Show("Please input the AWS information, Bucket Name, and Local Path.", "Please define AWS information, Bucket name, Local Path ...", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-
-            RegistryKey rk = Registry.CurrentUser;
-            RegistryKey rkOpen = rk.CreateSubKey(REGISTRY_KEY);
-            rkOpen.SetValue("LocalPath", txtLocalPath.Text);
-            rkOpen.SetValue("AWSID", txtAWSID.Text);
-            rkOpen.SetValue("AWSKey", txtAWSKey.Text);
-            rkOpen.SetValue("Bucket", txtBucket.Text);
-            strLocalPath = txtLocalPath.Text;
-            //Create the directory if it is not created
-            if (!Directory.Exists(strLocalPath))
+            // If the bucket doesn't exist, then create it.
+            if (!Bucket.Exists)
             {
                 try
                 {
-                    Directory.CreateDirectory(strLocalPath);
+                    Bucket.Create();
+                    showNotifyMessage("Bucket Created", "Bucket \"" + BucketName + "\" created successfully.");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    showErrorMessage("Error", ex.Message);
                     return;
                 }
             }
-
-            // Sync the directory first.
-            S3Conn = new S3Connection(txtAWSID.Text, txtAWSKey.Text);
-            Bucket = new S3Bucket(S3Conn, txtBucket.Text);
-
-            try
-            {
-                initSync();
-                fileSystemWatcher.Path = strLocalPath;
-            }
-            catch (ArgumentException ae)
-            {
-                MessageBox.Show(ae.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            catch (Exception ee)
-            {
-                MessageBox.Show(ee.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            TopMost = false;
-            this.WindowState = FormWindowState.Minimized;
-            notifyIcon.Text = "Amazon S3 Sync [running]";
-        }
-        private void menuSetting_Click(object sender, EventArgs e)
-        {
-            TopMost = true;
-            this.WindowState = FormWindowState.Normal;
-        }
-        private void menuExit_Click(object sender, EventArgs e)
-        {
-            boolContextFormClose = true;
-            Application.Exit();
         }
 
-        private void notifyIcon_MouseDoubleClick(object sender, MouseEventArgs e)
+        private void SyncS3()
         {
-            TopMost = true;
-            this.WindowState = FormWindowState.Normal;
-        }
-
-        private void S3Notify_FormClosing(object sender, FormClosingEventArgs e)
-        {
-            //If the flag is "false", then it means that it is not raised from context menu and it is raised by clicking X button in the form
-            if (boolContextFormClose == false)
+            #region init sync file
+            Utils.ListDirectory(strLocalPath);
+            foreach (var S3Obj in Bucket.Keys)
             {
-                e.Cancel = true;
-                TopMost = false;
-                this.WindowState = FormWindowState.Minimized;
+                string StrPathName = S3Obj.Key.Replace("/", "\\");
+                string StrFileName = strLocalPath + "\\" + S3Obj.Key;
 
-                notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
-                notifyIcon.BalloonTipTitle = "Amazon S3 Sync [Beta] running ...";
-                notifyIcon.BalloonTipText = "Amazon S3 Sync is still running in background.\nDouble click me to open setting window again.";
-                notifyIcon.ShowBalloonTip(5);
-            }
-            //Otherwise the close event is raised from context menu and ask the user whether he wants to close the application
-            else
-            {
-                if (MessageBox.Show("Do you want to close \"Amazon S3 Sync\"?", "Amazon S3 Sync", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.No)
+                FileInfo FiLocal = new FileInfo(StrFileName);
+                // Make sure the directory is already created.
+                if (!Directory.Exists(FiLocal.DirectoryName))
                 {
-                    e.Cancel = true;
+                    try
+                    {
+                        Directory.CreateDirectory(FiLocal.DirectoryName);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw ex;
+                    }
+                    showNotifyMessage("Directory Created", "Directory \"" + FiLocal.DirectoryName + "\" created successfully.");
+                }
+                
+                // Is a directory, skip it.
+                if (S3Obj.Key.EndsWith("/"))
+                {
+                    Utils.AlDirectories.Remove(FiLocal.DirectoryName);
+                    continue;
+                }
+
+                if (!FiLocal.Exists)
+                {
+                    S3Obj.Get(FiLocal.FullName);
+                    showNotifyMessage("File Downloaded", FiLocal.FullName);
+                }
+                else
+                {
+                    Utils.AlFiles.Remove(FiLocal.FullName);
+                    DateTime lastWriteTime = FiLocal.LastWriteTime;
+                    if (lastWriteTime > S3Obj.LastModified)
+                    {
+                        string LocalFileETag = Utils.Md5(StrFileName);
+                        if (!LocalFileETag.ToLower().Equals(S3Obj.ETag))
+                        {
+                            S3Obj.Upload(FiLocal.FullName);
+                            showNotifyMessage("S3 File Updated", FiLocal.FullName + ", \nEtag:" + LocalFileETag.ToLower() + "\nS3ETag" + S3Obj.ETag);
+                        }
+                        continue;
+                    }
+
+                    if (lastWriteTime < S3Obj.LastModified)
+                    {
+                        string LocalFileETag = Utils.Md5(StrFileName);
+                        if (!LocalFileETag.ToLower().Equals(S3Obj.ETag))
+                        {
+                            S3Obj.Get(FiLocal.FullName);
+                            showNotifyMessage("Local File Updated", FiLocal.FullName + ", \nEtag:" + LocalFileETag.ToLower() + "\nS3ETag" + S3Obj.ETag);
+                        }
+                        continue;
+                    }
                 }
             }
+            foreach (var StrPath in Utils.AlDirectories)
+            {
+                string S3Key = Utils.GetKeyByPath((string)StrPath, strLocalPath);
+                S3Key += "/";
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Upload(StrPath.ToString());
+                showNotifyMessage("Upload Directory", (string)StrPath);
+            }
+            foreach (var StrPath in Utils.AlFiles)
+            {
+                string S3Key = Utils.GetKeyByPath((string)StrPath, strLocalPath);
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Upload(StrPath.ToString());
+                showNotifyMessage("Upload File", (string)StrPath);
+            }
+            #endregion
         }
 
-        private void btnExit_Click(object sender, EventArgs e)
-        {
-            notifyIcon.Text = "Amazon S3 Sync [not running]";
-            boolContextFormClose = true;
-            Application.Exit();
-        }
-
+        #region show ballon tip
         private void showNotifyMessage(string title, string message)
         {
             notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
@@ -180,153 +283,116 @@ namespace Fr.Zhou.S3
             notifyIcon.ShowBalloonTip(5);
         }
 
-        private void initSync()
+        private void showErrorMessage(string title, string message)
         {
-            // If the bucket doesn't exist, then create it.
-            if (!Bucket.Exists)
-            {
-                try
-                {
-                    Bucket.Create();
-                    showNotifyMessage("Bucket Created", "Bucket \"" + txtBucket.Text + "\" created successfully.");
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
-
-
-            #region init sync file
-            // TODO: Upload local new file to S3 server.
-            foreach (var S3File in Bucket.Keys)
-            {
-                string StrFileName = strLocalPath + "\\" + S3File.Key;
-
-                FileInfo FiLocal = new FileInfo(StrFileName);
-                if (Utils.IsDirectory(S3File.Key))
-                {
-                    if (!Directory.Exists(FiLocal.DirectoryName))
-                    {
-                        try
-                        {
-                            Directory.CreateDirectory(FiLocal.DirectoryName);
-                        }
-                        catch (Exception ex)
-                        {
-                            throw ex;
-                        }
-                    }
-                    showNotifyMessage("Directory Created", "Directory \"" + FiLocal.DirectoryName + "\" created successfully.");
-                    continue;
-                }
-
-                if (!FiLocal.Exists)
-                {
-                    S3File.S3ObjectDownload(FiLocal.FullName);
-                    showNotifyMessage("File Downloaded", FiLocal.FullName);
-                }
-                else
-                {
-                    DateTime lastWriteTime = FiLocal.LastWriteTime;
-                    if (lastWriteTime > S3File.LastModified)
-                    {
-                        string LocalFileETag = Utils.Md5(StrFileName);
-                        if (!LocalFileETag.ToLower().Equals(S3File.ETag))
-                        {
-                            S3File.S3ObjectUpload(FiLocal.FullName);
-                            showNotifyMessage("S3 File Updated", FiLocal.FullName);
-                        }
-                        continue;
-                    }
-
-                    if (lastWriteTime < S3File.LastModified)
-                    {
-                        string LocalFileETag = Utils.Md5(StrFileName);
-                        if (!LocalFileETag.ToLower().Equals(S3File.ETag))
-                        {
-                            S3File.S3ObjectDownload(FiLocal.FullName);
-                            showNotifyMessage("Local File Updated", FiLocal.FullName);
-                        }
-                        continue;
-                    }
-                }
-            }
-            #endregion
+            notifyIcon.BalloonTipIcon = ToolTipIcon.Error;
+            notifyIcon.BalloonTipTitle = title;
+            notifyIcon.BalloonTipText = message;
+            notifyIcon.ShowBalloonTip(5);
         }
+        #endregion
 
-        private static string getKey(string FilePath)
-        {
-            FileInfo FiLocal = new FileInfo(FilePath);
-            FileInfo FiBase = new FileInfo(strLocalPath + "\\");
-            string FiLocalDir = FiLocal.DirectoryName;
-            string FiBaseDir = FiBase.DirectoryName;
-            string S3Key = FiLocal.FullName.Substring(FiBaseDir.Length + 1);
-            
-            S3Key = S3Key.Replace("\\", "/");
-            return S3Key;
-        }
-
+        #region file system watcher event
         private void fileSystemWatcher_Changed(object sender, FileSystemEventArgs e)
         {
+            string S3Key = Utils.GetKeyByPath(e.FullPath, strLocalPath);
+            string FileType = "File";
             if (Directory.Exists(e.FullPath))
             {
-                this.showNotifyMessage("File " + e.ChangeType + ":", "TODO:" + e.FullPath);
-                return;
+                S3Key += "/";
+                FileType = "Directory";
             }
             try
             {
-                S3Object S3Obj = new S3Object(S3Conn, txtBucket.Text, getKey(e.FullPath));
-                S3Obj.S3ObjectUpload(e.FullPath);
-                this.showNotifyMessage("File Uploaded", getKey(e.FullPath));
+                S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                S3Obj.Upload(e.FullPath);
+                this.showNotifyMessage(FileType + " " + e.ChangeType, S3Key);
             }
             catch (Exception ee)
             {
-                MessageBox.Show(ee.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                showErrorMessage("Error", ee.Message);
             }
         }
 
         private void fileSystemWatcher_Deleted(object sender, FileSystemEventArgs e)
         {
+            string S3Key = Utils.GetKeyByPath(e.FullPath, strLocalPath);
+            string FileType = "File";
             if (Directory.Exists(e.FullPath))
             {
-                this.showNotifyMessage("File " + e.ChangeType + ":", "TODO:" + e.FullPath);
-                return;
+                S3Key += "/";
+                FileType = "Directory";
             }
             try
             {
-
-                S3Object S3Obj = new S3Object(S3Conn, txtBucket.Text, getKey(e.FullPath));
-                S3Obj.S3ObjectDelete();
-                this.showNotifyMessage("File Deleted", getKey(e.FullPath));
+                if (FileType != "Directory")
+                {
+                    S3Object S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                    S3Obj.Delete();
+                }
+                else
+                {
+                    Bucket.DeleteDirectory(S3Key);
+                }
+                this.showNotifyMessage(FileType + " Deleted", S3Key);
             }
             catch (Exception ee)
             {
-                MessageBox.Show(ee.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                showErrorMessage("Error", ee.Message);
             }
         }
 
         private void fileSystemWatcher_Renamed(object sender, RenamedEventArgs e)
         {
+            string S3Key = Utils.GetKeyByPath(e.FullPath, strLocalPath);
+            string FileType = "File";
             if (Directory.Exists(e.FullPath))
             {
-                this.showNotifyMessage("File " + e.ChangeType + ":", "TODO:" + e.FullPath);
-                return;
+                S3Key += "/";
+                FileType = "Directory";
             }
             try
             {
-                S3Object S3Obj = new S3Object(S3Conn, txtBucket.Text, getKey(e.OldFullPath));
-                S3Obj.S3ObjectDelete();
-                S3Obj = new S3Object(S3Conn, txtBucket.Text, getKey(e.FullPath));
-                S3Obj.S3ObjectUpload(e.FullPath);
-                this.showNotifyMessage("File Updated", getKey(e.FullPath));
+                if (FileType != "Directory")
+                {
+                    S3Object S3Obj = new S3Object(S3Conn, BucketName, Utils.GetKeyByPath(e.OldFullPath, strLocalPath));
+                    S3Obj.Delete();
+                    S3Obj = new S3Object(S3Conn, BucketName, S3Key);
+                    S3Obj.Upload(e.FullPath);
+                }
+                else
+                {
+                    Bucket.DeleteDirectory(S3Key);
+                    Utils.ListDirectory(e.FullPath);
+                    foreach (var StrPath in Utils.AlDirectories)
+                    {
+                        string S3KeyOfDir = Utils.GetKeyByPath((string)StrPath, strLocalPath);
+                        S3KeyOfDir += "/";
+                        S3Object S3Obj = new S3Object(S3Conn, BucketName, S3KeyOfDir);
+                        S3Obj.Upload(StrPath.ToString());
+                        showNotifyMessage("Upload Directory", (string)StrPath);
+                    }
+                    foreach (var StrPath in Utils.AlFiles)
+                    {
+                        string S3KeyOfDir = Utils.GetKeyByPath((string)StrPath, strLocalPath);
+                        S3Object S3Obj = new S3Object(S3Conn, BucketName, S3KeyOfDir);
+                        S3Obj.Upload(StrPath.ToString());
+                        showNotifyMessage("Upload File", (string)StrPath);
+                    }
+                }
+                this.showNotifyMessage(FileType + " Renamed", S3Key);
             }
             catch (Exception ee)
             {
-                MessageBox.Show(ee.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                showErrorMessage("Error", ee.Message);
             }
-            //this.showNotifyMessage("File " + e.ChangeType + ":", "From " + e.OldFullPath + " to " + e.FullPath + " [" + DateTime.Now.ToLongTimeString() + "]");
+        }
+        #endregion
+
+        private void manuallySyncToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            SyncS3();
         }
     }
+        
 }

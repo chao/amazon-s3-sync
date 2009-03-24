@@ -123,6 +123,18 @@ namespace Fr.Zhou.S3
             }
         }
 
+        public void DeleteDirectory(string DirectoryName)
+        {
+            foreach (var S3Obj in this.Keys)
+            {
+                if (S3Obj.Key.ToLower().StartsWith(DirectoryName.ToLower()))
+                {
+                    S3Object S3O = new S3Object(Connection, m_name, S3Obj.Key);
+                    S3O.Delete();
+                }
+            }
+        }  
+    
         public override string ToString()
         {
             return m_name;
