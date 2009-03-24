@@ -4,13 +4,35 @@ using System.Linq;
 using System.Text;
 using System.Diagnostics;
 using System.IO;
+using Microsoft.Win32;
 
 namespace Fr.Zhou.S3
 {
     static class Keys
     {
-        public static readonly string AwsAccessKeyId = "<Your Access Key Id Here>";
-        public static readonly string AwsSecretAccessKey = "<Your Access Key Here>";
+        private static readonly string REGISTRY_KEY = "Software\\S3Sync\\LocalPath";
+        public static string AwsAccessKeyId
+        {
+            get {
+                RegistryKey rk = Registry.CurrentUser;
+                RegistryKey rkOpen = rk.OpenSubKey(REGISTRY_KEY);
+                if (rkOpen != null && rkOpen.GetValue("AWSID") != null)
+                    return rkOpen.GetValue("AWSID").ToString();
+                else
+                    return "<Your Access Key Id Here>"; 
+            }
+        }
+        public static string AwsSecretAccessKey
+        {
+            get {
+                RegistryKey rk = Registry.CurrentUser;
+                RegistryKey rkOpen = rk.OpenSubKey(REGISTRY_KEY);
+                if (rkOpen != null && rkOpen.GetValue("AWSKey") != null)
+                    return rkOpen.GetValue("AWSKey").ToString();
+                else
+                    return "<Your Access Key Here>"; 
+            }
+        }
     }
 
     class S3Test
